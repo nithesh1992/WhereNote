@@ -3,30 +3,40 @@ package me.nithesh.wherenote;
 /**
  * Created by Nithesh on 8/26/2016.
  */
+
+import android.Manifest;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.location.Location;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.appindexing.Action;
 import com.google.android.gms.appindexing.AppIndex;
+import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
 
 
-public class EditorActivity extends AppCompatActivity {
+public class EditorActivity extends AppCompatActivity implements
+        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
     private String action;
     private EditText editor;
-    private TextView mapData;
     private TextView latid;
     private TextView lonid;
     private String noteFilter;
@@ -34,8 +44,13 @@ public class EditorActivity extends AppCompatActivity {
     private String mapsLink;
     private String latitude;
     private String longitude;
-    private ImageView map_clipart;
     private String address;
+    protected static final String TAG = "Location Log";
+    private LocationManager mLocationManager;
+    private Location mLocation;
+    protected GoogleApiClient mGoogleApiClient;
+    protected LocationRequest mLocationRequest;
+    private static final int REQUEST_LOCATION = 0;
     /**
      * ATTENTION: This was auto-generated to implement the App Indexing API.
      * See https://g.co/AppIndexing/AndroidStudio for more information.
@@ -49,11 +64,8 @@ public class EditorActivity extends AppCompatActivity {
         setContentView(R.layout.activity_editor);
 
         editor = (EditText) findViewById(R.id.editText);
-        mapData = (TextView) findViewById(R.id.MapText);
         latid = (TextView) findViewById(R.id.lat_id);
         lonid = (TextView) findViewById(R.id.lon_id);
-        map_clipart = (ImageView)findViewById(R.id.imageView);
-
 
         Intent intent = getIntent();
 
@@ -73,14 +85,20 @@ public class EditorActivity extends AppCompatActivity {
 
             oldText = cursor.getString(cursor.getColumnIndex(DBOpenHelper.NOTE_TEXT));
             editor.setText(oldText);
-            mapData.setText(cursor.getString(cursor.getColumnIndex(DBOpenHelper.MAP_LINK)));
+
             editor.requestFocus();
             latid.setText(cursor.getString(cursor.getColumnIndex(DBOpenHelper.LAT)));
             latid.setText(cursor.getString(cursor.getColumnIndex(DBOpenHelper.LON)));
+            mapsLink = cursor.getString(cursor.getColumnIndex(DBOpenHelper.MAP_LINK));
         }
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API)
+                .build();
     }
 
 
@@ -139,6 +157,7 @@ public class EditorActivity extends AppCompatActivity {
                 }
 
         }
+
         finish();
     }
 
@@ -166,13 +185,12 @@ public class EditorActivity extends AppCompatActivity {
     }
 
     public void getLocForNewNote(View view) {
-        ShowLocationData gpsTracker = new ShowLocationData(this);
-        latitude = String.valueOf(gpsTracker.getLatitude());
-        longitude = String.valueOf(gpsTracker.getLongitude());
-        mapsLink = "https://maps.google.com/maps?q=" + latitude + "," + longitude;
-        latid.setText(latitude);
-        lonid.setText(longitude);
-       // mapData.setText(mapsLink);
+
+
+            mapsLink = "https://maps.google.com/maps?q=" + latitude + "," + longitude;
+            latid.setText(latitude);
+            lonid.setText(longitude);
+
 
     }
 
@@ -190,7 +208,7 @@ public class EditorActivity extends AppCompatActivity {
     @Override
     public void onStart() {
         super.onStart();
-
+        mGoogleApiClient.connect();
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         client.connect();
@@ -210,7 +228,9 @@ public class EditorActivity extends AppCompatActivity {
     @Override
     public void onStop() {
         super.onStop();
-
+        if (mGoogleApiClient.isConnected()) {
+            mGoogleApiClient.disconnect();
+        }
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         Action viewAction = Action.newAction(
@@ -224,6 +244,55 @@ public class EditorActivity extends AppCompatActivity {
                 Uri.parse("android-app://me.nithesh.wherenote/http/host/path")
         );
         AppIndex.AppIndexApi.end(client, viewAction);
+
         client.disconnect();
+    }
+
+    @Override
+    public void onConnected(Bundle bundle) {
+
+        mLocationRequest = LocationRequest.create();
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setInterval(1000);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Check Permissions Now
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    REQUEST_LOCATION);
+        } else {
+            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+        }
+    }
+
+    // Request Permissions
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == REQUEST_LOCATION) {
+            if(grantResults.length == 1
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // We can now safely use the API we requested access to
+                LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+            } else {
+                Log.i(TAG, "Permission was denied or request was cancelled");
+            }
+        }
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+        Log.i(TAG, "GoogleApiClient connection suspended");
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        Log.d(TAG, "onLocationChanged() called");
+        Log.i(TAG, "Location: " + location.toString());
+        latitude = String.valueOf(location.getLatitude()) ;
+        longitude = String.valueOf(location.getLongitude());
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult connectionResult) {
+        Log.i(TAG, "GoogleApiClient connection failed");
     }
 }
