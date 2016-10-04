@@ -9,6 +9,7 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.net.Uri;
@@ -22,7 +23,7 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
-
+import android.location.Address;
 import com.google.android.gms.appindexing.Action;
 import com.google.android.gms.appindexing.AppIndex;
 import com.google.android.gms.common.ConnectionResult;
@@ -31,20 +32,30 @@ import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
+
 
 public class EditorActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
     private String action;
     private EditText editor;
+    private EditText addressText;
     private TextView latid;
     private TextView lonid;
     private String noteFilter;
     private String oldText;
+    private String oldAddress;
     private String mapsLink;
     private String latitude;
     private String longitude;
-    private String address;
+    private String displayed_latitude;
+    private String displayed_longitude;
+    private boolean clicked;
+    private List<Address> addressList;
+    private String pAddress;
     protected static final String TAG = "Location Log";
     private LocationManager mLocationManager;
     private Location mLocation;
@@ -66,9 +77,9 @@ public class EditorActivity extends AppCompatActivity implements
         editor = (EditText) findViewById(R.id.editText);
         latid = (TextView) findViewById(R.id.lat_id);
         lonid = (TextView) findViewById(R.id.lon_id);
-
+        addressText = (EditText) findViewById(R.id.addressText);
+        clicked = false;
         Intent intent = getIntent();
-
         Uri uri = intent.getParcelableExtra(NotesProvider.CONTENT_ITEM_TYPE);
 
         if (uri == null) {
@@ -85,11 +96,15 @@ public class EditorActivity extends AppCompatActivity implements
 
             oldText = cursor.getString(cursor.getColumnIndex(DBOpenHelper.NOTE_TEXT));
             editor.setText(oldText);
-
+            oldAddress = cursor.getString(cursor.getColumnIndex(DBOpenHelper.ADDRESS));
+            addressText.setText(oldAddress);
+            displayed_longitude = cursor.getString(cursor.getColumnIndex(DBOpenHelper.LON));
+            displayed_latitude = cursor.getString(cursor.getColumnIndex(DBOpenHelper.LAT));
             editor.requestFocus();
-            latid.setText(cursor.getString(cursor.getColumnIndex(DBOpenHelper.LAT)));
-            latid.setText(cursor.getString(cursor.getColumnIndex(DBOpenHelper.LON)));
+            latid.setText(displayed_latitude);
+            lonid.setText(displayed_longitude);
             mapsLink = cursor.getString(cursor.getColumnIndex(DBOpenHelper.MAP_LINK));
+
         }
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
@@ -137,7 +152,7 @@ public class EditorActivity extends AppCompatActivity implements
 
     private void finishEditing() {
         String newText = editor.getText().toString().trim();
-
+        String newAddress = addressText.getText().toString().trim();
 
         switch (action) {
             case Intent.ACTION_INSERT:
@@ -148,12 +163,19 @@ public class EditorActivity extends AppCompatActivity implements
                 }
                 break;
             case Intent.ACTION_EDIT:
-                if (newText.length() == 0) {
+                if (newText.length() == 0)
+                {
                     deleteNote();
-                } else if (oldText.equals(newText)) {
+                }
+
+                else if(clicked || oldText != newText || oldAddress != newAddress)
+                {
+                    updateNote(newText,newAddress);
+                }
+
+                else
+                {
                     setResult(RESULT_CANCELED);
-                } else {
-                    updateNote(newText);
                 }
 
         }
@@ -161,13 +183,13 @@ public class EditorActivity extends AppCompatActivity implements
         finish();
     }
 
-    private void updateNote(String noteText) {
+    private void updateNote(String noteText, String addressTxt) {
         ContentValues values = new ContentValues();
         values.put(DBOpenHelper.NOTE_TEXT, noteText);
         values.put(DBOpenHelper.MAP_LINK, mapsLink);
-        values.put(DBOpenHelper.LAT, latitude);
-        values.put(DBOpenHelper.LON, longitude);
-        values.put(DBOpenHelper.ADDRESS, "Addr");
+        values.put(DBOpenHelper.LAT, displayed_latitude);
+        values.put(DBOpenHelper.LON, displayed_longitude);
+        values.put(DBOpenHelper.ADDRESS, addressTxt);
         getContentResolver().update(NotesProvider.CONTENT_URI, values, noteFilter, null);
         Toast.makeText(this, getString(R.string.note_updated), Toast.LENGTH_SHORT).show();
         setResult(RESULT_OK);
@@ -177,26 +199,53 @@ public class EditorActivity extends AppCompatActivity implements
         ContentValues values = new ContentValues();
         values.put(DBOpenHelper.NOTE_TEXT, noteText);
         values.put(DBOpenHelper.MAP_LINK, mapsLink);
-        values.put(DBOpenHelper.LAT, latitude);
-        values.put(DBOpenHelper.LON, longitude);
-        values.put(DBOpenHelper.ADDRESS, "Addr");
+        values.put(DBOpenHelper.LAT, displayed_latitude);
+        values.put(DBOpenHelper.LON, displayed_longitude);
+        values.put(DBOpenHelper.ADDRESS, addressText.getText().toString().trim());
         getContentResolver().insert(NotesProvider.CONTENT_URI, values);
         setResult(RESULT_OK);
     }
 
     public void getLocForNewNote(View view) {
+            clicked = true;
+            addressText.setText("");
+            Toast.makeText(this, getString(R.string.getting_), Toast.LENGTH_LONG).show();
+            for(int i = 0; i < 5; i++) {
+                latid.setText(latitude);
+                lonid.setText(longitude);
+                displayed_longitude = longitude;
+                displayed_latitude = latitude;
+                mapsLink = "https://maps.google.com/maps?q=" + displayed_latitude + "," + displayed_latitude;
+                pAddress = getAddress();
+                addressText.setText(pAddress);
+            }
 
+    }
 
-            mapsLink = "https://maps.google.com/maps?q=" + latitude + "," + longitude;
-            latid.setText(latitude);
-            lonid.setText(longitude);
+    private String getAddress()
+    {
+        String result = "";
 
+                if (addressList != null && addressList.size() > 0) {
+                    Address address = addressList.get(0);
+                    StringBuilder sb = new StringBuilder();
+                    if(address.getMaxAddressLineIndex() > 0)
+                    {
+                        sb.append(address.getAddressLine(0)).append("\n");
+                    }
+                    sb.append(address.getLocality()).append("\n");
+                    sb.append(address.getPostalCode()).append("\n");
+                    sb.append(address.getCountryName());
+                    result = sb.toString();
+                    result = result + " (approx.)";
+                    Log.i(TAG, result);
+                }
 
+        return result;
     }
 
     public void goToGmap(View view) {
         startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(mapsLink)));
-
     }
 
 
@@ -289,6 +338,13 @@ public class EditorActivity extends AppCompatActivity implements
         Log.i(TAG, "Location: " + location.toString());
         latitude = String.valueOf(location.getLatitude()) ;
         longitude = String.valueOf(location.getLongitude());
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        try {
+            addressList = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     @Override
