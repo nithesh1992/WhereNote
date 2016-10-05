@@ -209,16 +209,21 @@ public class EditorActivity extends AppCompatActivity implements
     public void getLocForNewNote(View view) {
             clicked = true;
             addressText.setText("");
-            Toast.makeText(this, getString(R.string.getting_), Toast.LENGTH_LONG).show();
-            for(int i = 0; i < 5; i++) {
+            Toast.makeText(this, getString(R.string.getting_), Toast.LENGTH_SHORT).show();
+            for(int i = 0; i < 8; i++) {
                 latid.setText(latitude);
                 lonid.setText(longitude);
                 displayed_longitude = longitude;
                 displayed_latitude = latitude;
-                mapsLink = "https://maps.google.com/maps?q=" + displayed_latitude + "," + displayed_latitude;
+                mapsLink = "google.navigation:q=" + displayed_latitude + "," + displayed_longitude ;
                 pAddress = getAddress();
                 addressText.setText(pAddress);
             }
+            if(displayed_latitude == null && displayed_longitude == null)
+            {
+                Toast.makeText(this, getString(R.string.click_settings), Toast.LENGTH_SHORT).show();
+            }
+
 
     }
 
@@ -229,13 +234,11 @@ public class EditorActivity extends AppCompatActivity implements
                 if (addressList != null && addressList.size() > 0) {
                     Address address = addressList.get(0);
                     StringBuilder sb = new StringBuilder();
-                    if(address.getMaxAddressLineIndex() > 0)
+                    for(int i = 0; i < address.getMaxAddressLineIndex(); i++)
                     {
-                        sb.append(address.getAddressLine(0)).append("\n");
+                        sb.append(address.getAddressLine(i)).append("\n");
                     }
-                    sb.append(address.getLocality()).append("\n");
-                    sb.append(address.getPostalCode()).append("\n");
-                    sb.append(address.getCountryName());
+                    sb.append(address.getCountryCode());
                     result = sb.toString();
                     result = result + " (approx.)";
                     Log.i(TAG, result);
@@ -245,7 +248,12 @@ public class EditorActivity extends AppCompatActivity implements
     }
 
     public void goToGmap(View view) {
-        startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(mapsLink)));
+       // startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(mapsLink)));
+        Uri gmmIntentUri = Uri.parse(mapsLink);
+        Log.i(TAG, mapsLink);
+        Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+        mapIntent.setPackage("com.google.android.apps.maps");
+        startActivity(mapIntent);
     }
 
 
@@ -305,6 +313,7 @@ public class EditorActivity extends AppCompatActivity implements
         mLocationRequest.setInterval(1000);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, getString(R.string.perm_err), Toast.LENGTH_SHORT).show();
             // Check Permissions Now
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
@@ -323,6 +332,7 @@ public class EditorActivity extends AppCompatActivity implements
                 LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
             } else {
                 Log.i(TAG, "Permission was denied or request was cancelled");
+                Toast.makeText(this, getString(R.string.gps_err), Toast.LENGTH_SHORT).show();
             }
         }
     }

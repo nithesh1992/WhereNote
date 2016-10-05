@@ -39,9 +39,18 @@
             android:src="@drawable/ic_action_add"
             android:onClick="getLocForNewNote"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="28dp"
             android:layout_marginBottom="10dp"
-            android:elevation="10dp" />
+            android:elevation="4dp" />
+
+        <EditText
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textMultiLine"
+            android:ems="10"
+            android:id="@+id/addressText"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="20dp" />
 
         <android.support.v7.widget.CardView
             android:id="@+id/card_view_map"
@@ -111,12 +120,6 @@
             </RelativeLayout>
         </android.support.v7.widget.CardView>
 
-        <EditText
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="textPostalAddress"
-            android:ems="10"
-            android:id="@+id/addressText" />
     </LinearLayout>
 
 </RelativeLayout>
