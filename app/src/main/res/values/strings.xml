@@ -6,13 +6,17 @@
     <string name="all_deleted">All notes deleted</string>
     <string name="title_activity_editor">EditorActivity</string>
 
-    <string name="click_more">Tap multiple times to get accurate location</string>
+    <string name="click_settings">Please Enable GPS in Location Settings! (or) Click Again</string>
     <string name="getting_">Getting GPS Location..</string>
     <string name="action_settings">Settings</string>
     <string name="new_note">New Location</string>
     <string name="note_updated">Note updated</string>
     <string name="action_delete">Delete</string>
     <string name="note_deleted">Note deleted</string>
+    <string name="gps_err">GPS Error</string>
+    <string name="perm_err">Location Permissions Not Granted</string>
+    <string name="gps_inst">* Make Sure, GPS Setting is in High Priority Mode</string>
+    <string name="nav_inst">* Click Location Card to Open Map</string>
     <string name="note">Note</string>
     <string name="enter_note_here">Enter note here</string>
 </resources>
