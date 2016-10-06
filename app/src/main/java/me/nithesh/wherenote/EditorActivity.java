@@ -9,6 +9,7 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
@@ -23,7 +24,7 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.location.Address;
+
 import com.google.android.gms.appindexing.Action;
 import com.google.android.gms.appindexing.AppIndex;
 import com.google.android.gms.common.ConnectionResult;
@@ -215,7 +216,8 @@ public class EditorActivity extends AppCompatActivity implements
                 lonid.setText(longitude);
                 displayed_longitude = longitude;
                 displayed_latitude = latitude;
-                mapsLink = "google.navigation:q=" + displayed_latitude + "," + displayed_longitude ;
+                String label = editor.getText().toString().trim().replaceAll(" ", "+");
+                mapsLink = String.format("geo:0,0?q=%s,%s(%s)", displayed_latitude, displayed_longitude, label);
                 pAddress = getAddress();
                 addressText.setText(pAddress);
             }
